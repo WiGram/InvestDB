@@ -10,6 +10,7 @@ from app_server import server
 # 1. Open Microsoft PowerShell
 # 2. Go to G-drive, type: G:
 # 3. Go to folder, type: cd Development\shiny_app_in_python
-# 4. Run app, type: shiny run --reload /app_run.py
+# 4. Run app, type: shiny run --reload /app_run.py or .\app_run.py
+# 5. Close using ctrl+c in terminal window
 app = App(app_ui, server)
  
