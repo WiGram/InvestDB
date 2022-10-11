@@ -1,5 +1,7 @@
 class YFinData:
-    def __init__(self, yfin_data=None, tickers=None, start_date=None, end_date=None):
+    def __init__(
+        self, yfin_data=None, tickers=None, start_date=None, end_date=None
+    ):
         self.yfin_data = yfin_data
         self.tickers = tickers
         self.start_date = start_date
