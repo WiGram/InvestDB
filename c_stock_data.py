@@ -27,6 +27,7 @@ class YFinData:
         Set tickers if this wasn't set when initialising the object
         """
         self.tickers = tickers
+        return None
     
     def set_start_date(self, start_date):
         """
@@ -39,6 +40,7 @@ class YFinData:
         Set start_date if this wasn't set when initialising the object
         """
         self.start_date = start_date
+        return None
     
     def set_end_date(self, end_date):
         """
@@ -51,6 +53,25 @@ class YFinData:
         Set end_date if this wasn't set when initialising the object
         """
         self.end_dtae = end_date
+        return None
+    
+    def __helper_transform_yahoo_df__(self, yfin_data=None):
+        if yfin_data is None:
+            yfin_data = self.yfin_data
+        
+        stock_df = yfin_data \
+                .stack() \
+                .reset_index() \
+                .rename(columns={'level_1': 'Ticker'})
+        
+        # Replace spaces in column names with underscores
+        stock_df.columns = stock_df \
+            .columns \
+            .str \
+            .replace(' ', '_')
+        
+        # Assign dataframe to object
+        return stock_df
     
     def populate_data(self):
         """
@@ -66,21 +87,9 @@ class YFinData:
         # Check if yfindata is populated
         if self.yfin_data is not None:
             # Pivot tickers columns into single column
-            stock_df = self.yfin_data \
-                .stack() \
-                .reset_index() \
-                .rename(columns={'level_1': 'Ticker'})
-            
-            # Replace spaces in column names with underscores
-            stock_df.columns = stock_df \
-                .columns \
-                .str \
-                .replace(' ', '_')
-            
-            # Assign dataframe to object
-            self.stock_df = stock_df
+            self.stock_df = self.__helper_transform_yahoo_df__()
             print('Prices dataframe now available, see self.stock_df.')
-            return 'Prices dataframe now availbale, see self.stock_df.'
+            return None
         
         if self.tickers is None:
             print('Tickers are missing')
@@ -97,20 +106,51 @@ class YFinData:
         try:
             print('File found - using stored data')
             stock_df = pd.read_parquet(path=self.file_path, engine='pyarrow')
+            start_date_data = stock_df.Date.min().date()
+            end_date_data = stock_df.Date.max().date()
+            df_tickers = ' '.join(stock_df.Ticker.unique().tolist())
+
         except FileNotFoundError:
             print('File not found - data being dowloaded')
             TICKERS = ' '.join(self.tickers)
             new_stock_df = yf.download(TICKERS, self.start_date, self.end_date)
             self.stock_df = new_stock_df
             return 'Data was downloaded'
+
         except Exception as e:
             print('Unexpected error: ', e)
+            return e
         
         added_tickers = self.__helper_added_tickers__(stock_df)
         start_date_req = self.__helper_start_date__(stock_df)
         end_date_req = self.__helper_end_date__(stock_df)
 
+        if len(added_tickers) > 3:
+            new_ticker_data = yf.download(
+                added_tickers, start_date_req, end_date_req
+            )
+            append_df = self.__helper_transform_yahoo_df__(new_ticker_data)
+            stock_df = pd.concat([stock_df, append_df], ignore_index=True)
+        
+        if start_date_req < start_date_data:
+            print('Should download earlier data for existing tickers')
+            earlier_stock_data = yf.download(df_tickers, start_date_req, start_date_data)
+            earlier_ticker_data = self.__helper_transform_yahoo_df__(earlier_stock_data)
+            stock_df = pd.concat([stock_df, earlier_ticker_data], ignore_index=True)
+        else:
+            print('Starts as early as possible')
+        
+        if end_date_data < end_date_req:
+            print('Should download earlier data for existing tickers')
+            later_stock_data = yf.download(df_tickers, end_date_data, end_date_req)
+            later_ticker_data = self.__helper_transform_yahoo_df__(later_stock_data)
+            stock_df = pd.concat([stock_df, later_ticker_data], ignore_index=True)
+        else:
+            print('Ends as late as possible')
+        
+        self.stock_df = stock_df
 
+        return 'Import job done'
         
     
     def get_df(self):
