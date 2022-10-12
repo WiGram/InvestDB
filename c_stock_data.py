@@ -13,6 +13,7 @@ class YFinData:
         self.tickers = tickers
         self.start_date = start_date
         self.end_date = end_date
+        self.file_path = file_path
         self.stock_df = None
         self.returns_df = None
     
@@ -151,7 +152,6 @@ class YFinData:
         self.stock_df = stock_df
 
         return 'Import job done'
-        
     
     def get_df(self):
         """
@@ -166,7 +166,7 @@ class YFinData:
         if self.stock_df is not None:
             return self.stock_df
         else:
-            self.make_df(self)
+            self.populate_data()
             return self.stock_df
     
 
