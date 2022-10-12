@@ -61,15 +61,17 @@ class YFinData:
             yfin_data = self.yfin_data
         
         stock_df = yfin_data \
-                .stack() \
-                .reset_index() \
-                .rename(columns={'level_1': 'Ticker'})
+            .stack() \
+            .reset_index() \
+            .rename(columns={'level_1': 'Ticker'})
         
         # Replace spaces in column names with underscores
         stock_df.columns = stock_df \
             .columns \
             .str \
             .replace(' ', '_')
+        
+        stock_df.Date = stock_df.Date.dt.date
         
         # Assign dataframe to object
         return stock_df
@@ -105,17 +107,17 @@ class YFinData:
             return 'end_date is missing'
         
         try:
-            print('File found - using stored data')
             stock_df = pd.read_parquet(path=self.file_path, engine='pyarrow')
-            start_date_data = stock_df.Date.min().date()
-            end_date_data = stock_df.Date.max().date()
+            print('File found - using stored data')
+            start_date_data = stock_df.Date.min()
+            end_date_data = stock_df.Date.max()
             df_tickers = ' '.join(stock_df.Ticker.unique().tolist())
 
         except FileNotFoundError:
             print('File not found - data being dowloaded')
             TICKERS = ' '.join(self.tickers)
             new_stock_df = yf.download(TICKERS, self.start_date, self.end_date)
-            self.stock_df = new_stock_df
+            self.stock_df = self.__helper_transform_yahoo_df__(new_stock_df)
             return 'Data was downloaded'
 
         except Exception as e:
@@ -135,17 +137,23 @@ class YFinData:
         
         if start_date_req < start_date_data:
             print('Should download earlier data for existing tickers')
-            earlier_stock_data = yf.download(df_tickers, start_date_req, start_date_data)
-            earlier_ticker_data = self.__helper_transform_yahoo_df__(earlier_stock_data)
-            stock_df = pd.concat([stock_df, earlier_ticker_data], ignore_index=True)
+            earlier_stock_data = yf.download(df_tickers, start_date_req, start_date_data - pd.offsets.BDay(1))
+            pre_data = self.__helper_transform_yahoo_df__(earlier_stock_data)
+
+            # Yahoo finance dates are fuzzy - make a deterministic cutoff
+            pre_data = pre_data.loc[pre_data.Date < start_date_data, :]
+            stock_df = pd.concat([stock_df, pre_data], ignore_index=True)
         else:
             print('Starts as early as possible')
         
         if end_date_data < end_date_req:
             print('Should download earlier data for existing tickers')
-            later_stock_data = yf.download(df_tickers, end_date_data, end_date_req)
-            later_ticker_data = self.__helper_transform_yahoo_df__(later_stock_data)
-            stock_df = pd.concat([stock_df, later_ticker_data], ignore_index=True)
+            later_stock_data = yf.download(df_tickers, end_date_data + pd.offsets.BDay(1), end_date_req)
+            post_data = self.__helper_transform_yahoo_df__(later_stock_data)
+
+            # Yahoo finance dates are fuzzy - make a deterministic cutoff
+            post_data = post_data.loc[post_data.Date > end_date_data, :]
+            stock_df = pd.concat([stock_df, post_data], ignore_index=True)
         else:
             print('Ends as late as possible')
         
@@ -169,6 +177,8 @@ class YFinData:
             self.populate_data()
             return self.stock_df
     
+    def get_ticker_prices(self):
+        return None
 
     def get_returns(self):
         """
@@ -228,7 +238,7 @@ class YFinData:
         We make sure to expand the start date if the existing data
         starts earlier than our set start date.
         """
-        START_DATE_DATA = stock_df.Date.min().date()
+        START_DATE_DATA = stock_df.Date.min()
         START_DATE_REQ = min(self.start_date, START_DATE_DATA)
         return START_DATE_REQ
     
@@ -243,7 +253,19 @@ class YFinData:
         We make sure to expand the end date if the existing data
         ends later than our set end date.
         """
-        END_DATE_DATA = stock_df.Date.max().date()
+        END_DATE_DATA = stock_df.Date.max()
         END_DATE_REQ = max(self.end_date, END_DATE_DATA)
         return END_DATE_REQ
-
+    
+    def write_df(self):
+        if self.file_path is None:
+            print('Set file_path using set_file_path method and try again')
+            return None
+        
+        if self.stock_df is not None:
+            self.stock_df.to_parquet(self.file_path)
+            print('Dataframe is saved to: ', self.file_path)
+            return None
+        
+        print('Dataframe missing. Set parameters and call populate_data method')
+        return None

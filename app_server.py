@@ -1,6 +1,6 @@
 from shiny import render, reactive
 from matplotlib import pyplot as plt
-import yfinance as yf
+import c_stock_data as SD
 
 
 def server(input, output, session):
@@ -21,9 +21,19 @@ def server(input, output, session):
     @reactive.Calc
     @reactive.event(input.yf_get)
     def stock_data():
+        FILE_PATH = 'Data/stock_df.parquet'
+        TICKERS = ['GOOGL', 'MSFT', 'TSLA']
         START_DATE = start_get_date()
         END_DATE = end_get_date()
-        return yf.download('GOOGL MSFT TSLA', START_DATE, END_DATE)
+
+        stock_data = SD.YFinData(
+            tickers=TICKERS,
+            start_date=START_DATE,
+            end_date=END_DATE,
+            file_path=FILE_PATH
+        )
+        
+        return stock_data.get_df()
     
     @reactive.Calc
     @reactive.event(input.show)
@@ -49,7 +59,10 @@ def server(input, output, session):
 
         # stock_data = yf.download('GOOGL MSFT TSLA', START_DATE, END_DATE)
 
-        return stock_data()['Adj Close'].loc[START_DATE:END_DATE, TICKER]
+        df = stock_data()
+        df = df.pivot(index='Date', columns='Ticker', values='Adj_Close')
+
+        return df.loc[START_DATE:END_DATE, TICKER]
     
     @output
     @render.plot
