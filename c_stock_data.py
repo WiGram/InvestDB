@@ -101,12 +101,14 @@ class YFinData:
             print('File not found - data being dowloaded')
             TICKERS = ' '.join(self.tickers)
             new_stock_df = yf.download(TICKERS, self.start_date, self.end_date)
+            self.stock_df = new_stock_df
+            return 'Data was downloaded'
         except Exception as e:
             print('Unexpected error: ', e)
         
-        added_tickers = self.__helper_added_tickers__(new_stock_df)
-        start_date_req = self.__helper_start_date__(new_stock_df)
-        end_date_req = self.__helper_end_date__(new_stock_df)
+        added_tickers = self.__helper_added_tickers__(stock_df)
+        start_date_req = self.__helper_start_date__(stock_df)
+        end_date_req = self.__helper_end_date__(stock_df)
 
 
         
@@ -154,8 +156,19 @@ class YFinData:
             ' see self.returns_df.'
         )
 
-    def __helper_added_tickers__(self, new_stock_df):
-        DF_TICKERS = new_stock_df.Ticker.unique().tolist()
+    def __helper_added_tickers__(self, stock_df):
+        """
+        Params
+        ------
+        stock_df: pandas.Dataframe holding stock price information
+
+        Comment
+        -------
+        We receive only the tickers we don't already have stored.
+        This allows the download size to be reduced.
+        """
+
+        DF_TICKERS = stock_df.Ticker.unique().tolist()
 
         MSNG_TICKERS = set(self.tickers).difference(DF_TICKERS)
         ADDED_TICKERS = ' '.join(MSNG_TICKERS)
@@ -164,13 +177,33 @@ class YFinData:
 
         return ADDED_TICKERS
     
-    def __helper_start_date__(self, new_stock_df):
-        START_DATE_DATA = new_stock_df.Date.min().date()
+    def __helper_start_date__(self, stock_df):
+        """
+        Params
+        ------
+        stock_df: pandas.Dataframe holding stock price information
+
+        Comment
+        -------
+        We make sure to expand the start date if the existing data
+        starts earlier than our set start date.
+        """
+        START_DATE_DATA = stock_df.Date.min().date()
         START_DATE_REQ = min(self.start_date, START_DATE_DATA)
         return START_DATE_REQ
     
-    def __helper_end_date__(self, new_stock_df):
-        END_DATE_DATA = new_stock_df.Date.max().date()
+    def __helper_end_date__(self, stock_df):
+        """
+        Params
+        ------
+        stock_df: pandas.Dataframe holding stock price information
+
+        Comment
+        -------
+        We make sure to expand the end date if the existing data
+        ends later than our set end date.
+        """
+        END_DATE_DATA = stock_df.Date.max().date()
         END_DATE_REQ = max(self.end_date, END_DATE_DATA)
         return END_DATE_REQ
 
