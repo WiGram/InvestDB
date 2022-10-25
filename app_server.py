@@ -1,6 +1,7 @@
 from shiny import render, reactive
 from matplotlib import pyplot as plt
 import c_stock_data as SD
+import pandas as pd
 
 
 def server(input, output, session):
@@ -21,8 +22,10 @@ def server(input, output, session):
     @reactive.Calc
     @reactive.event(input.yf_get)
     def stock_data():
+        df_allocations = pd.read_excel('Data/allocations.xlsx')
+        TICKERS = df_allocations['Ticker'].to_list()
+
         FILE_PATH = 'Data/stock_df.parquet'
-        TICKERS = ['GOOGL', 'MSFT', 'TSLA']
         START_DATE = start_get_date()
         END_DATE = end_get_date()
 
@@ -38,12 +41,12 @@ def server(input, output, session):
     @reactive.Calc
     @reactive.event(input.show)
     def start_date():
-        return input.sdt()
+        return input.i_start_dt()
     
     @reactive.Calc
     @reactive.event(input.show)
     def end_date():
-        return input.edt()
+        return input.i_end_dt()
     
     @reactive.Calc
     @reactive.event(input.show)
