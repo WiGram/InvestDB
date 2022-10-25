@@ -20,7 +20,7 @@ def ui_dict():
         'select_ticker': {
             'id': 'sticker',
             'label': 'Select',
-            'tickers': {'choices': choices_dict},
+            'choices': choices_dict,
         },
         'i_start_dt': {
             'id': 'i_start_dt',
@@ -33,7 +33,7 @@ def ui_dict():
             'value': '2022-01-01'
         },
         'i_date_range': {
-            'id': 'dt_rng',
+            'id': 'i_date_range',
             'label': 'Choose stock range',
             'start': "2010-01-01",
             'end': "2022-12-31",

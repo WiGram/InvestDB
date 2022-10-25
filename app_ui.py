@@ -11,7 +11,7 @@ app_ui = ui.page_fluid(
         ui.page_navbar(title='Navbar', id='nav_bar'),
 
         ui.panel_sidebar(
-            ui.input_date_range(**ui_dict['input_date_range']),
+            ui.input_date_range(**ui_dict['i_date_range']),
             
             ui.input_action_button(id='yf_get', label='Get data'),
 

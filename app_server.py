@@ -12,12 +12,12 @@ def server(input, output, session):
     @reactive.Calc
     @reactive.event(input.yf_get)
     def start_get_date():
-        return input.dt_rng()[0]
+        return input.i_date_range()[0]
     
     @reactive.Calc
     @reactive.event(input.yf_get)
     def end_get_date():
-        return input.dt_rng()[1]
+        return input.i_date_range()[1]
 
     @reactive.Calc
     @reactive.event(input.yf_get)
