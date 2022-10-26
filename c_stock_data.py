@@ -1,12 +1,16 @@
 import pandas as pd
 import yfinance as yf
+from datetime import date
 
 
 class YFinData:
     def __init__(
-        self, yfin_data=None, 
-        tickers=None, start_date=None, end_date=None,
-        file_path=None
+        self,
+        yfin_data: pd.DataFrame = None,
+        tickers: list[str] = None,
+        start_date: date = None,
+        end_date: date = None,
+        file_path: str = None
     ):
 
         self.yfin_data = yfin_data
@@ -17,7 +21,7 @@ class YFinData:
         self.stock_df = None
         self.returns_df = None
     
-    def set_tickers(self, tickers):
+    def set_tickers(self, tickers: list[str]):
         """
         Params
         ------
@@ -30,7 +34,7 @@ class YFinData:
         self.tickers = tickers
         return None
     
-    def set_start_date(self, start_date):
+    def set_start_date(self, start_date: date):
         """
         Params
         ------
@@ -43,7 +47,7 @@ class YFinData:
         self.start_date = start_date
         return None
     
-    def set_end_date(self, end_date):
+    def set_end_date(self, end_date: date):
         """
         Params
         ------
@@ -53,28 +57,70 @@ class YFinData:
         -------
         Set end_date if this wasn't set when initialising the object
         """
-        self.end_dtae = end_date
+        self.end_date = end_date
         return None
     
-    def __helper_transform_yahoo_df__(self, yfin_data=None):
+    def __helper_transform_yahoo_df__(
+        self,
+        yfin_data: pd.DataFrame = None,
+        ticker: str = None
+    ):
+        """
+        Params
+        ------
+        yfin_data: dataframe from yahoo finance api
+        ticker: string containing one single ticker, used when only one ticker is added
+
+        Comment
+        -------
+        Set end_date if this wasn't set when initialising the object
+        """
         if yfin_data is None:
             yfin_data = self.yfin_data
         
-        stock_df = yfin_data \
-            .stack() \
-            .reset_index() \
-            .rename(columns={'level_1': 'Ticker'})
+        if ticker is not None:
+            # If we provide list of tickers then automatically use the first one
+            ticker_str = ticker[0]
+        elif len(self.tickers) == 1:
+            # If we need the tickers then take the first one
+            ticker_str = self.tickers[0]
+        else:
+            ticker_str = None
         
+        if isinstance(yfin_data.columns, pd.MultiIndex):
+            stock_df = yfin_data \
+                .stack() \
+                .reset_index() \
+                .rename(columns={'level_1': 'Ticker'})
+        elif ticker is not None:
+            yfin_data = yfin_data.reset_index()
+            yfin_data['Ticker'] = ticker_str
+            cols = ['Date', 'Ticker', 'Adj Close', 'Close', 'High', 'Low', 'Open', 'Volume']
+            stock_df = yfin_data[cols]
+        else:
+            print('Problem - please provide ticker')
+            stock_df = None
+            return stock_df
+            
         # Replace spaces in column names with underscores
         stock_df.columns = stock_df \
             .columns \
             .str \
             .replace(' ', '_')
         
+        # Enforce date type for Date column
         stock_df.Date = stock_df.Date.dt.date
         
         # Assign dataframe to object
         return stock_df
+    
+    def __helper_load_yfin_data__(self, ticker: str = None):
+        if self.stock_df is not None:
+            print('Using existing df')
+        if self.yfin_data is not None:
+            self.stock_df = self.__helper_transform_yahoo_df__(ticker)
+            print('Prices dataframe now available, see self.stock_df')
+        return None
     
     def populate_data(self):
         """
@@ -87,12 +133,8 @@ class YFinData:
         Reformat the dataframe to support variable amount of tickers
         """
 
-        # Check if yfindata is populated
-        if self.yfin_data is not None:
-            # Pivot tickers columns into single column
-            self.stock_df = self.__helper_transform_yahoo_df__()
-            print('Prices dataframe now available, see self.stock_df.')
-            return None
+        # Check if yfindata is populated        
+        self.__helper_load_yfin_data__()
         
         if self.tickers is None:
             print('Tickers are missing')
@@ -128,11 +170,12 @@ class YFinData:
         start_date_req = self.__helper_start_date__(stock_df)
         end_date_req = self.__helper_end_date__(stock_df)
 
-        if len(added_tickers) > 3:
+        if len(added_tickers) > 0:
+            added_tickers_str = ' '.join(added_tickers)
             new_ticker_data = yf.download(
-                added_tickers, start_date_req, end_date_req
+                added_tickers_str, start_date_req, end_date_req
             )
-            append_df = self.__helper_transform_yahoo_df__(new_ticker_data)
+            append_df = self.__helper_transform_yahoo_df__(new_ticker_data, added_tickers)
             stock_df = pd.concat([stock_df, append_df], ignore_index=True)
         
         if start_date_req < start_date_data:
@@ -220,12 +263,12 @@ class YFinData:
 
         DF_TICKERS = stock_df.Ticker.unique().tolist()
 
-        MSNG_TICKERS = set(self.tickers).difference(DF_TICKERS)
+        MSNG_TICKERS = list(set(self.tickers).difference(DF_TICKERS))
         ADDED_TICKERS = ' '.join(MSNG_TICKERS)
 
         print('Tickers to be added: ', ADDED_TICKERS)
 
-        return ADDED_TICKERS
+        return MSNG_TICKERS
     
     def __helper_start_date__(self, stock_df):
         """

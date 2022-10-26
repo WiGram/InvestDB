@@ -35,8 +35,12 @@ def server(input, output, session):
             end_date=END_DATE,
             file_path=FILE_PATH
         )
+
+        stock_data_df = stock_data.get_df()
+
+        stock_data.write_df()
         
-        return stock_data.get_df()
+        return stock_data_df
     
     @reactive.Calc
     @reactive.event(input.show)
