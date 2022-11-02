@@ -60,6 +60,34 @@ class YFinData:
         self.end_date = end_date
         return None
     
+    def __helper_set_ticker_as_column__(self, yfin_data, ticker=None):
+        
+        # Declare a ticker_str for use in the output dataframe
+        ticker_str: str = None
+
+        # If we provide list of tickers then automatically use the first one
+        if ticker is not None:
+            ticker_str = ticker[0]
+
+        # If we need the tickers then take the first one
+        elif len(self.tickers) == 1:
+            ticker_str = self.tickers[0]
+        
+        if isinstance(yfin_data.columns, pd.MultiIndex):
+            stock_df = yfin_data \
+                .stack() \
+                .reset_index() \
+                .rename(columns={'level_1': 'Ticker'})
+        elif ticker_str is not None:
+            yfin_data = yfin_data.reset_index()
+            yfin_data['Ticker'] = ticker_str
+            cols = ['Date', 'Ticker', 'Adj Close', 'Close', 'High', 'Low', 'Open', 'Volume']
+            stock_df = yfin_data[cols]
+        else:
+            print('Problem - please provide ticker')
+            stock_df = None
+        return stock_df
+    
     def __helper_transform_yahoo_df__(
         self,
         yfin_data: pd.DataFrame = None,
@@ -75,32 +103,13 @@ class YFinData:
         -------
         Set end_date if this wasn't set when initialising the object
         """
+
+        # Ensure we have a yahoo data frame
         if yfin_data is None:
-            yfin_data = self.yfin_data
+            yfin_data = self.yfin_data        
         
-        if ticker is not None:
-            # If we provide list of tickers then automatically use the first one
-            ticker_str = ticker[0]
-        elif len(self.tickers) == 1:
-            # If we need the tickers then take the first one
-            ticker_str = self.tickers[0]
-        else:
-            ticker_str = None
-        
-        if isinstance(yfin_data.columns, pd.MultiIndex):
-            stock_df = yfin_data \
-                .stack() \
-                .reset_index() \
-                .rename(columns={'level_1': 'Ticker'})
-        elif ticker is not None:
-            yfin_data = yfin_data.reset_index()
-            yfin_data['Ticker'] = ticker_str
-            cols = ['Date', 'Ticker', 'Adj Close', 'Close', 'High', 'Low', 'Open', 'Volume']
-            stock_df = yfin_data[cols]
-        else:
-            print('Problem - please provide ticker')
-            stock_df = None
-            return stock_df
+        # Make sure Tickers are collected in a column
+        stock_df = self.__helper_set_ticker_as_column__(yfin_data, ticker)
             
         # Replace spaces in column names with underscores
         stock_df.columns = stock_df \
